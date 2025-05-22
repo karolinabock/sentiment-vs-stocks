@@ -3,6 +3,7 @@
 import os
 import pandas as pd
 from sqlalchemy import create_engine
+from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
 # getting access from .env
@@ -11,6 +12,29 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 # db connection
 engine = create_engine(DATABASE_URL)
+conn = engine.raw_connection()
+cursor = conn.cursor()
+
+# no duplicates allowed
+def insert_no_duplicates(df, table_name, conflict_cols):
+    if df.empty:
+        print(f"[{table_name}] Empty DataFrame – skipping.")
+        return
+
+    columns = list(df.columns)
+    values = [tuple(x) for x in df.to_numpy()]
+    insert_stmt = f"""
+        INSERT INTO {table_name} ({', '.join(columns)})
+        VALUES %s
+        ON CONFLICT ({', '.join(conflict_cols)}) DO NOTHING;
+    """
+    try:
+        execute_values(cursor, insert_stmt, values)
+        conn.commit()
+        print(f"[{table_name}] Inserted {len(values)} rows (deduplicated).")
+    except Exception as e:
+        conn.rollback()
+        print(f"[{table_name}] Error during insert: {e}")
 
 # paths
 stock_files = ['AAPL.csv', 'TSLA.csv', 'AMZN.csv']
@@ -38,7 +62,7 @@ for filename in stock_files:
     df.dropna(subset=['date', 'open', 'close'], inplace=True)  # delete invalid rows
 
 
-    df.to_sql('stock_prices', engine, if_exists='append', index=False)
+    insert_no_duplicates(df, "stock_prices", ['symbol', 'date'])
     print(f"Sent: {filename} to db")    
 
 #news loading
@@ -51,5 +75,5 @@ if 'sentiment_score' not in df_news.columns:
 if 'sentiment_label' not in df_news.columns:
     df_news['sentiment_label'] = None
 
-df_news.to_sql('news_entries', engine, if_exists='append', index=False)
+insert_no_duplicates(df_news, "news_entries", ['date', 'content'])
 print("News sent to db.")
