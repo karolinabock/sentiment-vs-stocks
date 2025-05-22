@@ -1,2 +1,5 @@
 .env
-data/raw
+.data/raw/AAPL.csv
+.data/raw/AMZN.csv
+.data/raw/TSLA.csv
+.data/raw/mkt_news.csv
