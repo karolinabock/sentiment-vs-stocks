@@ -13,7 +13,8 @@ import os
 
 
 # Companies list
-symbols = ['AAPL', 'TSLA', 'AMZN']
+with open('data/raw/stock_names.txt') as f:
+    symbols = [line.strip() for line in f if line.strip()]
 
 # interval date last 6 months
 end_date = datetime.today()
