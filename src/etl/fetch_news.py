@@ -36,7 +36,7 @@ try:
     """)
     time.sleep(1)
 except Exception as e:
-    print(f"⚠️ Nie udało się usunąć wskazanego div'a: {e}")
+    print(f"Error: {e}")
 
 
 # header finder

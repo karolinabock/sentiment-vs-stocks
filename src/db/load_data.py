@@ -6,6 +6,9 @@ import pandas as pd
 from sqlalchemy import create_engine
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
+import subprocess
+from pathlib import Path
+
 
 # path to sentiment module
 sys.path.append("src")
@@ -117,6 +120,15 @@ insert_or_update(
 # DEBUG
 print(df_news[['date', 'sentiment_score', 'sentiment_label']].head())
 print("News sent to db.")
+
+#update missing sentiment
+update_script = Path(__file__).resolve().parents[1] / "process" / "update_missing_sentiment.py"
+
+print("Updating missing sentiment.")
+try:
+    subprocess.run([sys.executable, str(update_script)], check=True)
+except subprocess.CalledProcessError as e:
+    print(f"Error: {e}")
 
 # final validation
 count_result = pd.read_sql("SELECT COUNT(*) AS total FROM news_entries", engine)
