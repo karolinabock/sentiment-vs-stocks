@@ -64,7 +64,10 @@ def insert_or_update(df, table_name, conflict_cols, update_cols):
         print(f"[{table_name}] Error during insert_or_update: {e}")
 
 # paths
-stock_files = ['AAPL.csv', 'TSLA.csv', 'AMZN.csv']
+with open('data/raw/stock_names.txt') as f:
+    stock_symbols = [line.strip() for line in f if line.strip()]
+
+stock_files = [f"{symbol}.csv" for symbol in stock_symbols]
 stock_folder = 'data/raw/'
 
 for filename in stock_files:
