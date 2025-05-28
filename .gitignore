@@ -13,4 +13,4 @@ __pycache__/
 *.pyo
 
 #local scripts
-.run_pipeline.bat
+**/run_pipeline.bat
