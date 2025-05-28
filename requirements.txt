@@ -1,0 +1,8 @@
+pandas
+yfinance
+selenium
+python-dotenv
+vaderSentiment
+textblob
+sqlalchemy
+psycopg2-binary
