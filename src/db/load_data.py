@@ -18,12 +18,14 @@ from process.sentiment import get_sentiment
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-print("Connecting to db")
+print("Connecting to db.")
 
 # db conncetion
 engine = create_engine(DATABASE_URL)
 conn = engine.raw_connection()
 cursor = conn.cursor()
+
+print("Connected to db.")
 
 # add only when no data
 def insert_no_duplicates(df, table_name, conflict_cols):
@@ -66,16 +68,35 @@ def insert_or_update(df, table_name, conflict_cols, update_cols):
         conn.rollback()
         print(f"[{table_name}] Error during insert_or_update: {e}")
 
-# paths
-with open('data/raw/stock_names.txt') as f:
-    stock_symbols = [line.strip() for line in f if line.strip()]
+# sentiment 
+#symbol + name form txt
+symbol_to_name = {}
+stock_symbols = []
 
-stock_files = [f"{symbol}.csv" for symbol in stock_symbols]
+with open('data/raw/stock_names.txt', encoding='utf-8') as f:
+    for line in f:
+        parts = line.strip().split(';')
+        if len(parts) != 2:
+            continue
+        sym, name = parts
+        sym = sym.strip().upper()
+        name = name.strip().lower()
+        symbol_to_name[sym] = name
+        stock_symbols.append(sym)
+
+
+# stock 
+#stock_files = [f"{symbol}.csv" for symbol in stock_symbols]
 stock_folder = 'data/raw/'
 
-for filename in stock_files:
-    path = os.path.join(stock_folder, filename)
-    symbol = filename.split('.')[0]
+for symbol in stock_symbols:
+    path = os.path.join(stock_folder, f"{symbol}.csv")
+
+    if not os.path.exists(path):
+        print(f"File not found: {path}")
+        continue
+
+    print(f"Loading: {path}")
     df = pd.read_csv(path)
 
     if 'symbol' not in df.columns:
@@ -90,46 +111,41 @@ for filename in stock_files:
     df.dropna(subset=['date', 'open', 'close'], inplace=True)
 
     insert_no_duplicates(df, "stock_prices", ['symbol', 'date'])
-    print(f"Sent {filename} to db.")
+    print(f"Sent {symbol} to db.")
 
-# sentiment PHASE 1
+# news, sentiment, symbol detect
+
+def extract_symbols(text, symbol_map):
+    text_upper = text.upper()
+    text_lower = text.lower()
+    found = [sym for sym, name in symbol_map.items() if sym in text_upper or name in text_lower]
+    return found if found else ['UNKNOWN']
+
+
 news_file = 'data/raw/mkt_news.csv'
 df_news = pd.read_csv(news_file)
 df_news.columns = [c.lower() for c in df_news.columns]
-
-# parsing and sanity check
 df_news['content'] = df_news['content'].astype(str)
 df_news['date'] = pd.to_datetime(df_news['date'], errors='coerce')
 df_news.dropna(subset=['date', 'content'], inplace=True)
 
-print(f"Read {len(df_news)} news entries")
+print(f"Read {len(df_news)} news entries.")
 
-# sentiment
-df_news[['sentiment_score', 'sentiment_label']] = df_news['content'].apply(get_sentiment).apply(pd.Series)
+df_news['symbols'] = df_news['content'].apply(lambda text: extract_symbols(text, symbol_to_name))
+df_news = df_news[df_news['symbols'].map(len) > 0]  # discard news with no matched symbol
+df_expanded = df_news.explode('symbols').rename(columns={'symbols': 'symbol'})
 
-df_news.drop_duplicates(subset=['date', 'content'], inplace=True)
+df_expanded[['sentiment_score', 'sentiment_label']] = df_expanded['content'].apply(get_sentiment).apply(pd.Series)
+df_expanded.drop_duplicates(subset=['date', 'content', 'symbol'], inplace=True)
 
-# INSERT / UPDATE
 insert_or_update(
-    df_news,
+    df_expanded[['date', 'content', 'sentiment_score', 'sentiment_label', 'symbol']],
     table_name="news_entries",
-    conflict_cols=['date', 'content'],
+    conflict_cols=['date', 'content', 'symbol'],
     update_cols=['sentiment_score', 'sentiment_label']
 )
 
-# DEBUG
-print(df_news[['date', 'sentiment_score', 'sentiment_label']].head())
-print("News sent to db.")
+print("News entries (per symbol) saved to db.")
 
-#update missing sentiment
-update_script = Path(__file__).resolve().parents[1] / "process" / "update_missing_sentiment.py"
-
-print("Updating missing sentiment.")
-try:
-    subprocess.run([sys.executable, str(update_script)], check=True)
-except subprocess.CalledProcessError as e:
-    print(f"Error: {e}")
-
-# final validation
 count_result = pd.read_sql("SELECT COUNT(*) AS total FROM news_entries", engine)
 print("Total news entries in DB:", count_result['total'][0])
