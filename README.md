@@ -41,6 +41,7 @@ sentiment-vs-stocks/
 ├── ERD/
 │   └── data_model.drawio <WIP>
 ├── run_pipeline.py                     # run program
+├── requirements.txt
 └── README.md
 ```
 
