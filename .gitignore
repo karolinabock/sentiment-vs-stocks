@@ -1,5 +1,16 @@
+# enviroment and passwds
 .env
+*.env
+
+# data
 data/
+!data/raw/stock_names.txt        # zostaw listę spółek w repo
+!data/raw/                       # możesz też wyjąć puste foldery przez .gitkeep
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
+
+#local scripts
+.run_pipeline.bat
