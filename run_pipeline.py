@@ -1,5 +1,12 @@
 import subprocess
 import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+from utils.log_run import log_run
+
+if __name__ == "__main__" and "skiplog" not in sys.argv:
+    log_run("manual")
 
 scripts = [
     "src/etl/fetch_prices.py",
