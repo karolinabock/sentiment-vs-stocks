@@ -90,7 +90,15 @@ with open('data/raw/stock_names.txt', encoding='utf-8') as f:
 stock_folder = 'data/raw/'
 
 for symbol in stock_symbols:
-    path = os.path.join(stock_folder, f"{symbol}.csv")
+    matched_file = next(
+        (f for f in os.listdir(stock_folder) if f.startswith(symbol + ";") and f.endswith(".csv")),
+        None
+    )
+    if not matched_file:
+        print(f"File not found for symbol: {symbol}")
+        continue
+
+    path = os.path.join(stock_folder, matched_file)
 
     if not os.path.exists(path):
         print(f"File not found: {path}")
